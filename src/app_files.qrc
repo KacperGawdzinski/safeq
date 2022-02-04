@@ -1,0 +1,17 @@
+<RCC>
+  <qresource prefix="small_logo_icon">
+    <file>images/small_logo_icon.png</file>
+  </qresource>
+  <qresource prefix="steam_icon">
+    <file>images/steam_icon.png</file>
+  </qresource>
+  <qresource prefix="fb_icon">
+    <file>images/fb_icon.png</file>
+  </qresource>
+  <qresource prefix="home_icon">
+    <file>images/home_icon.png</file>
+  </qresource>
+  <qresource prefix="plus_icon">
+    <file>images/plus_icon.png</file>
+  </qresource>
+</RCC>

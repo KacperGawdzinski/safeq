@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "safeq"
+version = "1.0.0"
+description = "Password manager"
+authors = ["Kacper Gawdzinski gawdzinskikacper@gmail.com"]
+license = "GPL-2.0-or-later"
+
+[build-system]
+requires = [
+    "pyqt5",
+    "mysql-connector-python",
+    "fernet"
+]
