@@ -1,10 +1,10 @@
 import string
 import random
 import base64
-from login import Ui_LoginWindow
-from app import Ui_MainWindow
-from account import Ui_Dialog
-from notification import Ui_Dialog as Notification
+from src.login import Ui_LoginWindow
+from src.app import Ui_MainWindow
+from src.account import Ui_Dialog
+from src.notification import Ui_Dialog as Notification
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import QPropertyAnimation, QEvent
 from PyQt5.QtWidgets import QListWidgetItem
@@ -81,7 +81,6 @@ class Dialog(Ui_Dialog):
             self.window.show()
         else:
             sql = f"INSERT INTO user_{nick} (name, username, password, site, img) VALUES (%s, %s, %s, %s ,%s)"
-            print(key)
             fernet = Fernet(key)
             enc_pass = fernet.encrypt(password.encode())
             val = (name, username, enc_pass.decode("utf-8"), site, image)
@@ -299,6 +298,13 @@ class Login(Ui_LoginWindow):
         their profile.'''
         login = self.user_line_edit.text()
         passwd = self.password_line_edit.text()
+        if login == "" or passwd == "":
+            self.window = QtWidgets.QDialog()
+            self.ui = Notification()
+            self.ui.setupUi(self.window)
+            self.ui.label.setText("Fill username and password!")
+            self.window.show()
+            return
         cursor.execute(f"SELECT * FROM users WHERE username='{login}'")
         duplicate = cursor.fetchall()
         if len(duplicate) == 0:
@@ -309,6 +315,17 @@ class Login(Ui_LoginWindow):
             val = (login, hash, salt)
             cursor.execute(sql, val)
             db.commit()
+            self.window = QtWidgets.QDialog()
+            self.ui = Notification()
+            self.ui.setupUi(self.window)
+            self.ui.label.setText("Registration completed!")
+            self.window.show()
+        else:
+            self.window = QtWidgets.QDialog()
+            self.ui = Notification()
+            self.ui.setupUi(self.window)
+            self.ui.label.setText("User with given username already exists!")
+            self.window.show()
 
     def handle_login(self) -> None:
         '''Method which handles logging process. To determine
@@ -342,6 +359,12 @@ class Login(Ui_LoginWindow):
                 self.ui.package = (login, last_login)
                 self.ui.init_controls()
                 self.window.show()
+        else:
+            self.window = QtWidgets.QDialog()
+            self.ui = Notification()
+            self.ui.setupUi(self.window)
+            self.ui.label.setText("Invalid credentials!")
+            self.window.show()
 
 
 def get_random_string(length) -> str:

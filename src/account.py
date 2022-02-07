@@ -74,7 +74,7 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Add new account"))
+        Dialog.setWindowTitle(_translate("Dialog", "Account"))
         self.name_text.setPlaceholderText(_translate("Dialog", "Name..."))
         self.username_text.setPlaceholderText(
             _translate("Dialog", "Username..."))
