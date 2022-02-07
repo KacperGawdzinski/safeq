@@ -1,3 +1,6 @@
+import string
+import random
+import base64
 from login import Ui_LoginWindow
 from app import Ui_MainWindow
 from account import Ui_Dialog
@@ -10,6 +13,10 @@ import sys
 import mysql.connector
 from datetime import date
 from PyQt5.QtGui import QCursor
+from pbkdf2 import crypt
+import os
+from inspect import getsourcefile
+from os.path import abspath
 
 
 db = mysql.connector.connect(
@@ -21,15 +28,20 @@ db = mysql.connector.connect(
 )
 
 
-MainWindow = None
+main_window = None
 nick = None
 key = None
+
 cursor = db.cursor(buffered=True)
-cursor.execute("CREATE TABLE if not exists users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), token VARCHAR(255), last_login VARCHAR(255))")
+cursor.execute("CREATE TABLE if not exists users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), salt VARCHAR(255), last_login VARCHAR(255))")
+
+launch_path = abspath(getsourcefile(lambda: 0))
+project_path = os.path.dirname(launch_path)
+image_path = os.path.join(project_path, "images")
 
 
 class Dialog(Ui_Dialog):
-    '''Dialog class is used for adding new account to 
+    '''Dialog class is used for adding new account to
     application and editing existing ones.'''
 
     def __init__(self) -> None:
@@ -69,6 +81,7 @@ class Dialog(Ui_Dialog):
             self.window.show()
         else:
             sql = f"INSERT INTO user_{nick} (name, username, password, site, img) VALUES (%s, %s, %s, %s ,%s)"
+            print(key)
             fernet = Fernet(key)
             enc_pass = fernet.encrypt(password.encode())
             val = (name, username, enc_pass.decode("utf-8"), site, image)
@@ -111,7 +124,7 @@ class App(Ui_MainWindow):
         Ui_MainWindow.__init__(self)
 
     def init_controls(self) -> None:
-        '''Method which gives initial state according to data from 
+        '''Method which gives initial state according to data from
         database, connects signals to widgets and sets styles which
         were not available in CSS.'''
         self.update_account_list()
@@ -187,10 +200,10 @@ class App(Ui_MainWindow):
             font.setPointSize(20)
             item.setFont(font)
             icon = QtGui.QIcon()
-            icon.addPixmap(QtGui.QPixmap(
-                f'./images/{img}'), QtGui.QIcon.Normal, QtGui.QIcon.On)
-            icon.addPixmap(QtGui.QPixmap(
-                f'./images/{img}'), QtGui.QIcon.Selected, QtGui.QIcon.On)
+            icon.addPixmap(QtGui.QPixmap(os.path.join(
+                image_path, img)), QtGui.QIcon.Normal, QtGui.QIcon.On)
+            icon.addPixmap(QtGui.QPixmap(os.path.join(
+                image_path, img)), QtGui.QIcon.Selected, QtGui.QIcon.On)
             item.setIcon(icon)
             brush = QtGui.QBrush(QtGui.QColor(255, 255, 255))
             brush.setStyle(QtCore.Qt.NoBrush)
@@ -240,7 +253,8 @@ class App(Ui_MainWindow):
         '''Method which pulls and decodes given password with
         user token key generated with successful login.'''
         name = self.name_label.text().strip()
-        cursor.execute(f"SELECT password FROM user_{nick} WHERE name='{name}'")
+        cursor.execute(
+            f"SELECT password FROM user_{nick} WHERE name='{name}'")
         result = cursor.fetchall()
         password = result[0][0]
         fernet = Fernet(key)
@@ -288,11 +302,11 @@ class Login(Ui_LoginWindow):
         cursor.execute(f"SELECT * FROM users WHERE username='{login}'")
         duplicate = cursor.fetchall()
         if len(duplicate) == 0:
-            key = Fernet.generate_key()
-            fernet = Fernet(key)
-            enc_pass = fernet.encrypt(passwd.encode())
-            sql = "INSERT INTO users (username, password, token) VALUES (%s, %s, %s)"
-            val = (login, enc_pass.decode("utf-8"), key)
+            salt = get_random_string(32)
+            temp = crypt(passwd, "", iterations=10000)
+            hash = crypt(temp, salt, iterations=10000)
+            sql = "INSERT INTO users (username, password, salt) VALUES (%s, %s, %s)"
+            val = (login, hash, salt)
             cursor.execute(sql, val)
             db.commit()
 
@@ -301,26 +315,27 @@ class Login(Ui_LoginWindow):
         whether user provided valid password encryption key is
         being first pulled and then used to decrypt saved
         password.'''
+        global key, nick
         login = self.user_line_edit.text()
         passwd = self.password_line_edit.text()
         cursor.execute(
-            f"SELECT password, token, last_login FROM users WHERE username='{login}'")
+            f"SELECT password, salt, last_login FROM users WHERE username='{login}'")
         result = cursor.fetchall()
         if len(result) == 1:
-            (org_enc_pass, token, last_login) = result[0]
-            fernet = Fernet(token)
-            enc_pass = fernet.decrypt(org_enc_pass.encode())
-            passwd_utf8 = enc_pass.decode("utf-8")
-            if passwd_utf8 == passwd:
-                global key
-                key = token
-                global nick
+            (hashed_passwd, salt, last_login) = result[0]
+
+            key = crypt(passwd, "", iterations=10000)
+            hash = crypt(key, salt, iterations=10000)
+            key = key[0:32]
+            key = base64.urlsafe_b64encode(key.encode())
+
+            if hash == hashed_passwd:
                 nick = login
                 cursor.execute(
                     f"UPDATE users SET last_login = '{date.today().strftime('%B %d, %Y')}' WHERE username = '{login}'")
                 cursor.execute(
                     f"CREATE TABLE if not exists user_{login} (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), username VARCHAR(255), password VARCHAR(255), site VARCHAR(255), img VARCHAR(255))")
-                MainWindow.close()
+                main_window.close()
                 self.window = QtWidgets.QMainWindow()
                 self.ui = App()
                 self.ui.setupUi(self.window)
@@ -329,13 +344,19 @@ class Login(Ui_LoginWindow):
                 self.window.show()
 
 
+def get_random_string(length) -> str:
+    letters = string.ascii_lowercase
+    result_str = ''.join(random.choice(letters) for i in range(length))
+    return result_str
+
+
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
+    main_window = QtWidgets.QMainWindow()
     ui = Login()
-    ui.setupUi(MainWindow)
+    ui.setupUi(main_window)
     ui.init_controls()
-    MainWindow.show()
+    main_window.show()
     sys.exit(app.exec_())
 
 # pyuic5 -x app.ui -o app.py

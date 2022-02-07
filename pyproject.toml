@@ -9,5 +9,6 @@ license = "GPL-2.0-or-later"
 requires = [
     "pyqt5",
     "mysql-connector-python",
-    "fernet"
+    "fernet",
+    "pbkdf2"
 ]
