@@ -1,13 +1,10 @@
-from unittest.mock import MagicMock
 import unittest
 import sys
 import src.safeq
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtWidgets
 import sys
-from pbkdf2 import crypt
 from inspect import getsourcefile
 from os.path import abspath
-from unittest import mock
 import os
 
 
